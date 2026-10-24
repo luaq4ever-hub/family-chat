@@ -29,22 +29,22 @@
     .msg .time { font-size: 10px; color: #999; float: right; margin-left: 8px; margin-top: 4px; }
     .msg img { max-width: 100%; border-radius: 6px; margin-top: 5px; cursor: pointer; max-height: 250px; object-fit: cover; }
     .file-link { display: flex; align-items: center; gap: 10px; background: #f0f0f0; padding: 10px; border-radius: 8px; text-decoration: none; color: #333; margin-top: 5px; }
-    .system { text-align: center; font-size: 12px; color: #666; background: #fff; padding: 4px 12px; border-radius: 10px; margin: 6px auto; width: fit-content; opacity: 0.8; }
+    .system { text-align: center; font-size: 12px; color: #666; background: #fff; padding: 4px 12px; border-radius: 10px; margin: 6px auto; width: fit-tent; opacity: 0.8; }
 
     #input-area { display: flex; padding: 8px; background: #f0f0f0; gap: 6px; }
     #textInput { flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #ccc; outline: none; }
     button { padding: 12px 20px; border-radius: 24px; border: none; background: #128c7e; color: white; cursor: pointer; font-weight: bold; }
     #fileBtn { background: #f0f0f0; color: #555; border: 1px solid #ccc; padding: 12px 15px; }
 
-    #login-screen { position: fixed; inset: 0; background: #075e54; display: flex; align-items: center; justify-content: center; z-index: 100; }
+    #login-screen { position: fixed; inset: 0; background: #075e54; display: flex; align-items: center; justify-tent: center; z-index: 100; }
     #login-box { background: white; padding: 32px; border-radius: 12px; text-align: center; }
     #login-box input { padding: 10px; width: 100%; margin-bottom: 10px; }
 
-    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; align-items: center; justify-tent: center; }
     #lightbox img { max-width: 95%; max-height: 85%; }
     
-    #call-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; color: white; }
-    #video-container { display: flex; gap: 10px; margin-bottom: 20px; }
+    #call-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-tent: center; color: white; }
+    #video-tainer { display: flex; gap: 10px; margin-bottom: 20px; }
     video { width: 300px; height: 220px; background: #333; border-radius: 10px; object-fit: cover; }
     #call-status { font-size: 24px; margin-bottom: 20px; font-weight: bold; }
     .call-actions { display: flex; gap: 20px; }
@@ -66,7 +66,7 @@
   </div>
 </div>
 
-<div id="main-container">
+<div id="main-tainer">
   <div id="sidebar">
     <div id="sidebar-header">Online Users</div>
     <div id="user-list"></div>
@@ -95,8 +95,8 @@
 </div>
 
 <div id="call-overlay">
-  <div id="call-status">Connecting...</div>
-  <div id="video-container">
+  <div id="call-status">necting...</div>
+  <div id="video-tainer">
     <video id="localVideo" autoplay muted playsinline></video>
     <video id="remoteVideo" autoplay playsinline></video>
   </div>
@@ -111,8 +111,24 @@ let currentCallType = null;
 let currentTarget = null;
 let incomingOffer = null; // OFFER SAVE KARNE KE LIYE
 
-let peerConnection = null;
-const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+let peernection = null;
+// Purani line: const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+// Isey hata kar yeh naya code lagayein:
+
+const servers = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    {
+      urls: [
+        "turn:openrelay.metered.ca:80",
+        "turn:openrelay.metered.ca:443",
+        "turn:openrelay.metered.ca:443?transport=tcp"
+      ],
+      username: "openrelayproject",
+      credential: "openrelayproject"
+    }
+  ]
+};
 let localStream = null;
 
 const messagesEl = document.getElementById('messages');
