@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Family Chat</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #ece5dd; height: 100vh; display: flex; justify-content: center; }
+    #main-container { width: 100%; max-width: 900px; height: 100vh; display: flex; background: white; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+    
+    #sidebar { width: 250px; background: #f0f0f0; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+    #sidebar-header { background: #075e54; color: white; padding: 15px; font-weight: bold; }
+    #user-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .user-item { padding: 10px; background: white; margin-bottom: 5px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .online-dot { width: 10px; height: 10px; background: #25d366; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .call-btn { background: #128c7e; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
+    #chat-area { flex: 1; display: flex; flex-direction: column; position: relative; }
+    header { background: #075e54; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 18px; }
+    #messages { flex: 1; overflow-y: auto; padding: 12px; background: #efeae2; }
+    
+    .msg { max-width: 75%; padding: 8px 12px; margin: 6px 0; border-radius: 8px; font-size: 15px; position: relative; }
+    .mine { background: #d9fdd3; margin-left: auto; border-bottom-right-radius: 2px; }
+    .theirs { background: white; margin-right: auto; border-bottom-left-radius: 2px; }
+    .msg .user { font-size: 12px; font-weight: 600; color: #128c7e; margin-bottom: 3px; }
+    .msg .time { font-size: 10px; color: #999; float: right; margin-left: 8px; margin-top: 4px; }
+    .msg img { max-width: 100%; border-radius: 6px; margin-top: 5px; cursor: pointer; max-height: 250px; object-fit: cover; }
+    .file-link { display: flex; align-items: center; gap: 10px; background: #f0f0f0; padding: 10px; border-radius: 8px; text-decoration: none; color: #333; margin-top: 5px; }
+    .system { text-align: center; font-size: 12px; color: #666; background: #fff; padding: 4px 12px; border-radius: 10px; margin: 6px auto; width: fit-content; opacity: 0.8; }
+
+    #input-area { display: flex; padding: 8px; background: #f0f0f0; gap: 6px; }
+    #textInput { flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #ccc; outline: none; }
+    button { padding: 12px 20px; border-radius: 24px; border: none; background: #128c7e; color: white; cursor: pointer; font-weight: bold; }
+    #fileBtn { background: #f0f0f0; color: #555; border: 1px solid #ccc; padding: 12px 15px; }
+
+    #login-screen { position: fixed; inset: 0; background: #075e54; display: flex; align-items: center; justify-content: center; z-index: 100; }
+    #login-box { background: white; padding: 32px; border-radius: 12px; text-align: center; }
+    #login-box input { padding: 10px; width: 100%; margin-bottom: 10px; }
+
+    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+    #lightbox img { max-width: 95%; max-height: 85%; }
+    
+    #call-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; color: white; }
+    #video-container { display: flex; gap: 10px; margin-bottom: 20px; }
+    video { width: 300px; height: 220px; background: #333; border-radius: 10px; object-fit: cover; }
+    #call-status { font-size: 24px; margin-bottom: 20px; font-weight: bold; }
+    .call-actions { display: flex; gap: 20px; }
+    .call-btn-lg { padding: 15px 30px; border-radius: 50px; border: none; font-size: 18px; cursor: pointer; font-weight: bold; }
+    .btn-accept { background: #25d366; color: white; }
+    .btn-reject { background: #ff3b30; color: white; }
+    .btn-end { background: #ff3b30; color: white; }
+
+    @media (max-width: 600px) { #sidebar { display: none; } }
+  </style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div id="login-box">
+    <h2>💬 Family Chat</h2>
+    <input type="text" id="nameInput" placeholder="Aapka naam...">
+    <button onclick="doLogin()">Join Chat</button>
+  </div>
+</div>
+
+<div id="main-container">
+  <div id="sidebar">
+    <div id="sidebar-header">Online Users</div>
+    <div id="user-list"></div>
+  </div>
+
+  <div id="chat-area">
+    <header>
+      <h1>💬 Family Chat</h1>
+    </header>
+    <div id="messages"></div>
+    <div id="input-area">
+      <input type="file" id="fileInput" style="display:none" onchange="sendFile()">
+      <button id="fileBtn" onclick="document.getElementById('fileInput').click()">📎</button>
+      <input type="text" id="textInput" placeholder="Message likhein..." disabled>
+      <button id="sendBtn" onclick="sendMsg()" disabled>Send</button>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox">
+  <img id="lightbox-img" src="">
+  <div style="margin-top:15px;">
+    <a id="download-btn" href="#" download="image.jpg" style="background:#128c7e; color:white; padding:10px 20px; text-decoration:none; border-radius:8px;">⬇️ Save</a>
+    <button onclick="document.getElementById('lightbox').style.display='none'" style="background:#ff3b30; padding:10px 20px;">✖ Close</button>
+  </div>
+</div>
+
+<div id="call-overlay">
+  <div id="call-status">Connecting...</div>
+  <div id="video-container">
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+  <div class="call-actions" id="call-buttons"></div>
+</div>
+
+<script>
+let socket = null;
+let myName = null;
+let mySid = null;
+let currentCallType = null;
+let currentTarget = null;
+let incomingOffer = null; // OFFER SAVE KARNE KE LIYE
+
+let peerConnection = null;
+const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+let localStream = null;
+
+const messagesEl = document.getElementById('messages');
+const textInput = document.getElementById('textInput');
+const sendBtn = document.getElementById('sendBtn');
+const userListEl = document.getElementById('user-list');
+
+function doLogin() {
+  const name = document.getElementById('nameInput').value.trim();
+  if (!name) return alert('Naam likhein!');
+  myName = name;
+  document.getElementById('login-screen').style.display = 'none';
+  connectSocket();
+}
+
+function connectSocket() {
+  socket = io();
+  socket.on('connect', () => {
+    mySid = socket.id;
+    socket.emit('join', { username: myName });
+    textInput.disabled = false; sendBtn.disabled = false;
+  });
+  
+  socket.on('history', msgs => { msgs.forEach(m => renderMessage(m)); scrollBottom(); });
+  socket.on('message', msg => { renderMessage(msg); scrollBottom(); });
+  socket.on('system', data => { renderSystem(data); scrollBottom(); });
+  
+  socket.on('online_users', users => {
+    userListEl.innerHTML = '';
+    users.forEach(user => {
+      if (user !== myName) {
+        const div = document.createElement('div');
+        div.className = 'user-item';
+        div.innerHTML = `
+          <span><span class="online-dot"></span>${escapeHtml(user)}</span>
+          <div>
+            <button class="call-btn" onclick="startCall('audio', '${user}')">📞</button>
+            <button class="call-btn" onclick="startCall('video', '${user}')">🎥</button>
+          </div>`;
+        userListEl.appendChild(div);
+      }
+    });
+  });
+
+  socket.on('incoming_call', async data => {
+    currentCallType = data.call_type;
+    currentTarget = data.from;
+    incomingOffer = data.offer; // OFFER SAVED
+    
+    document.getElementById('call-status').innerText = `${data.from} is calling...`;
+    document.getElementById('video-container').style.display = currentCallType === 'video' ? 'flex' : 'none';
+    document.getElementById('call-buttons').innerHTML = `
+      <button class="call-btn-lg btn-accept" onclick="acceptCall()">Accept</button>
+      <button class="call-btn-lg btn-reject" onclick="rejectCall()">Reject</button>`;
+    document.getElementById('call-overlay').style.display = 'flex';
+  });
+
+  socket.on('call_accepted', async data => {
+    await peerConnection.setRemoteDescription(data.answer);
+    document.getElementById('call-status').innerText = "Call Connected";
+    document.getElementById('call-buttons').innerHTML = `<button class="call-btn-lg btn-end" onclick="endCall()">End Call</button>`;
+  });
+
+  socket.on('ice_candidate', async data => {
+    if (peerConnection) {
+      try { await peerConnection.addIceCandidate(data.candidate); } catch (e) { console.log(e); }
+    }
+  });
+
+  socket.on('call_ended', () => {
+    cleanupCall();
+  });
+}
+
+function sendMsg() {
+  const text = textInput.value.trim();
+  if (!text) return;
+  socket.emit('message', { text });
+  textInput.value = ''; textInput.focus();
+}
+textInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMsg(); });
+
+function sendFile() {
+  const file = document.getElementById('fileInput').files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { socket.emit('file_share', { file: reader.result, name: file.name, type: file.type }); };
+  reader.readAsDataURL(file); 
+  document.getElementById('fileInput').value = ''; 
+}
+
+function renderMessage(msg) {
+  const div = document.createElement('div');
+  const mine = msg.sid === mySid || msg.user === myName;
+  div.className = 'msg ' + (mine ? 'mine' : 'theirs');
+  let content = msg.text;
+  if (msg.type && msg.type.startsWith('image/')) content = `<img src="${msg.file}" onclick="openLightbox('${msg.file}', '${msg.name}')">`;
+  else if (msg.file) content = `<a href="${msg.file}" download="${msg.name}" class="file-link">📄 ${escapeHtml(msg.name)}</a>`;
+  else content = `<span>${escapeHtml(msg.text)}</span>`;
+  div.innerHTML = `${mine ? '' : `<div class="user">${escapeHtml(msg.user)}</div>`}${content}<span class="time">${msg.time || ''}</span>`;
+  messagesEl.appendChild(div);
+}
+
+function renderSystem(data) {
+  const div = document.createElement('div');
+  div.className = 'system'; div.textContent = data.text;
+  messagesEl.appendChild(div);
+}
+
+async function setupPeerConnection() {
+  peerConnection = new RTCPeerConnection(servers);
+  if (localStream) {
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+  }
+  peerConnection.onicecandidate = event => {
+    if (event.candidate && currentTarget) {
+      socket.emit('ice_candidate', { to: currentTarget, candidate: event.candidate });
+    }
+  };
+  peerConnection.ontrack = event => {
+    document.getElementById('remoteVideo').srcObject = event.streams[0];
+  };
+}
+
+async function startCall(type, target) {
+  currentCallType = type;
+  currentTarget = target;
+  document.getElementById('call-overlay').style.display = 'flex';
+  document.getElementById('video-container').style.display = type === 'video' ? 'flex' : 'none';
+  document.getElementById('call-status').innerText = `Calling ${target}...`;
+  document.getElementById('call-buttons').innerHTML = `<button class="call-btn-lg btn-end" onclick="endCall()">Cancel</button>`;
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
+    document.getElementById('localVideo').srcObject = localStream;
+    await setupPeerConnection();
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    socket.emit('call_offer', { to: target, offer: offer, call_type: type });
+  } catch (err) {
+    alert("Camera/Mic ki ijazat nahi mili: " + err);
+    endCall();
+  }
+}
+
+// NAYA ACCEPT FUNCTION
+async function acceptCall() {
+  document.getElementById('call-buttons').innerHTML = `<button class="call-btn-lg btn-end" onclick="endCall()">End Call</button>`;
+  document.getElementById('call-status').innerText = "Connecting...";
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: currentCallType === 'video', audio: true });
+    document.getElementById('localVideo').srcObject = localStream;
+    
+    await setupPeerConnection();
+    
+    // Yahan asli offer set ho raha hai
+    await peerConnection.setRemoteDescription(incomingOffer);
+    
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    
+    socket.emit('call_answer', { to: currentTarget, answer: answer });
+    document.getElementById('call-status').innerText = "Call Connected";
+  } catch (err) {
+    console.error(err);
+    rejectCall();
+  }
+}
+
+function rejectCall() {
+  socket.emit('call_end', { to: currentTarget });
+  cleanupCall();
+}
+
+function endCall() {
+  socket.emit('call_end', { to: currentTarget });
+  cleanupCall();
+}
+
+function cleanupCall() {
+  document.getElementById('call-overlay').style.display = 'none';
+  document.getElementById('video-container').style.display = 'none';
+  if (peerConnection) { peerConnection.close(); peerConnection = null; }
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  document.getElementById('localVideo').srcObject = null;
+  document.getElementById('remoteVideo').srcObject = null;
+  currentTarget = null;
+  incomingOffer = null;
+}
+
+function openLightbox(imgSrc, imgName) {
+  document.getElementById('lightbox-img').src = imgSrc;
+  document.getElementById('download-btn').href = imgSrc;
+  document.getElementById('download-btn').download = imgName || 'image.jpg';
+  document.getElementById('lightbox').style.display = 'flex';
+}
+function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+</script>
+</body>
+</html>
